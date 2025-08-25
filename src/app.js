@@ -3,6 +3,9 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
+// Configurations
+import { connectDB } from "./db/config.js";
+
 // Configuration for environment variables
 dotenv.config();
 
@@ -28,7 +31,10 @@ app.get('/', (req, res) => {
     });
 })
 
-// Listener for running server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// Connecting to the database, if successful, then start the server
+connectDB().then(() => {
+    // Listener for running server
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+}).catch((error) => console.error(error));
