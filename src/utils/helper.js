@@ -1,5 +1,9 @@
-// Dependencies
+// Crypto modules
 import bcrypt from 'bcryptjs';
+import { randomBytes, createHash } from "node:crypto";
+
+// JWT module
+import jwt from 'jsonwebtoken';
 
 /**
  * Hashes a plain text password using bcrypt with a salt round of 10.
@@ -26,4 +30,60 @@ export async function hashPassword(password) {
  */
 export async function validatePassword(password, storedHash) {
     return await bcrypt.compare(password, storedHash);
+}
+
+/**
+ * Generates a JSON Web Token (JWT) with the specified payload, secret, and expiration time.
+ * 
+ * @function generateToken
+ * @param {Object} payload - The data to be encoded in the JWT (e.g., user ID, roles)
+ * @param {string} secret - The secret key used to sign the token
+ * @param {string|number} expiry - The expiration time for the token (e.g., '1h', '7d', 3600)
+ * @returns {string} The signed JWT token
+ * @throws {Error} Throws an error if token generation fails
+ *
+ */
+export function generateToken(payload, secret, expiry) {
+    return jwt.sign(payload, secret, {
+        expiresIn: expiry
+    });
+}
+
+/**
+ * Validates and decodes a JSON Web Token (JWT) using the provided secret key.
+ * 
+ * @function validateToken
+ * @param {string} token - The JWT token to validate and decode
+ * @param {string} secret - The secret key used to verify the token signature
+ * @returns {Object} The decoded token payload if valid
+ * @throws {JsonWebTokenError} Throws an error if the token is invalid, expired, or malformed
+ *
+ */
+export function validateToken(token, secret) {
+    return jwt.verify(token, secret);
+}
+
+/**
+ * Generates a temporary token with an unhashed string, hashed version, and expiry time.
+ * Used for temporary authentication purposes like password reset or email verification.
+ * 
+ * @function generateTemporaryToken
+ * @returns {Object} An object containing the temporary token components
+ * @returns {string} `unhashedString` - The original random string
+ * @returns {string} `hashedToken` - The SHA256 hashed version
+ * @returns {number} `tokenExpiry` - The expiration timestamp
+ *
+ */
+export function generateTemporaryToken() {
+    // Generating a random string for hashing
+    const unhashedString = randomBytes(256).toString('hex');
+
+    // Creating a hash using the generated string
+    const hashedToken = createHash('sha256').update(unhashedString).digest('hex');
+
+    // Creating an expiry for the token
+    const tokenExpiry = Date.now() + (20*60*1000) // 20 mins
+
+    // Return the generated essentials 
+    return { unhashedString, hashedToken, tokenExpiry };
 }
