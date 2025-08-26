@@ -1,0 +1,1 @@
+export { default as healthCheckRouter } from './healthcheck.router.js';

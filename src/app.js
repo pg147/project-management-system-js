@@ -6,6 +6,9 @@ import cors from 'cors';
 // Configurations
 import { connectDB } from "./db/config.js";
 
+// Route handlers
+import { healthCheckRouter } from "./routes/index.js";
+
 // Configuration for environment variables
 dotenv.config();
 
@@ -30,6 +33,9 @@ app.get('/', (req, res) => {
         status: 'OK'
     });
 })
+
+// Request handlers
+app.use('/api/v1/healthcheck', healthCheckRouter);
 
 // Connecting to the database, if successful, then start the server
 connectDB().then(() => {
