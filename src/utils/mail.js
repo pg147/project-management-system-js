@@ -40,7 +40,7 @@ export async function sendEmail(options) {
         port: process.env.MAILTRAP_SMTP_PORT,
         auth: {
             user: process.env.MAILTRAP_SMTP_USER,
-            password: process.env.MAILTRAP_SMTP_PASSWORD
+            pass: process.env.MAILTRAP_SMTP_PASSWORD
         }
     });
     

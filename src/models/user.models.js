@@ -1,5 +1,5 @@
 // Mongoose ORM essentials
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 
 // Helper functions
 import { hashPassword } from "../utils/helper.js";
@@ -75,6 +75,6 @@ userSchema.pre('save', async function (next) {
 });
 
 // Creating a collection for users with the above schema
-const User = models?.user || model('user', userSchema);
+const User = mongoose.models?.user || model('user', userSchema);
 
 export default User;
