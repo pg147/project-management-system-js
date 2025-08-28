@@ -2,7 +2,7 @@
 import { Router} from 'express';
 
 // Controllers
-import { healthCheck } from "../controllers/healthcheck.controller.js";
+import { healthCheck } from "../controllers/healthcheck.controllers.js";
 
 // Initialized express router
 const router = Router();
