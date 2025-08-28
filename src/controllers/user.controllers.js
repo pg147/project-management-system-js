@@ -1,38 +1,36 @@
 // Services
-import { checkExistingUser, createNewUser, getUserById } from "../services/user.services.js";
+import {
+    checkExistingUser,
+    createNewUser,
+    generateAccessAndRefreshTokens,
+    getUserByEmail,
+    getUserById
+} from "../services/user.services.js";
 
 // Helper functions
-import { APIError, APIResponse } from "../utils/apiHelper.js";
-import { generateTemporaryToken, generateToken } from "../utils/helper.js";
-import { sendEmail, verificationEmailContent } from "../utils/mail.js";
+import {
+    APIError,
+    APIResponse,
+    generateTemporaryToken,
+    generateToken,
+    validatePassword,
+    sendEmail,
+    verificationEmailContent
+} from "../utils/index.js";
 
-// Function to generate access and refresh tokens for the user
-export async function generateAccessAndRefreshTokens(userId) {
-    try {
-        // Fetch the user using a desired service
-        const user = await getUserById(userId);
-
-        // Generating an access token for the user
-        const accessToken = generateToken({ id: user?._id, username: user?.username, email: user?.email }, process.env.ACCESS_TOKEN_SECRET, process.env.ACCESS_TOKEN_EXPIRY);
-
-        // Generating and assigning a refresh token to the user
-        user.refreshToken = generateToken({ id: user?._id }, process.env.REFRESH_TOKEN_SECRET, process.env.REFRESH_TOKEN_EXPIRY);
-
-        // Saving the modified user fields
-        await user.save({ validateBeforeSave: false });
-
-        // Return access token and refresh token
-        return { accessToken, refreshToken: user.refreshToken };
-    } catch (error) {
-        console.error("Error @generateAccessAndRefreshTokens ::", error?.message);
-        throw new APIError(500, error?.message);
-    }
-}
+// Validation schemas
+import { loginValidationSchema, signupValidationSchema } from "../validations/index.js";
 
 // Function to register a new user
 export async function registerUser(req, res) {
-    // Extracting user details from the request body
-    const { username, email, password } = req.body;
+    // Validating request fields
+    const validationResult = await signupValidationSchema.safeParseAsync(req.body);
+
+    // If validation fails, throw an error
+    if (validationResult.error) throw new APIError(400, `Error : ${validationResult.error}`);
+
+    // Extracting user details from the validated data
+    const { username, email, password } = validationResult.data;
 
     // Checking if the user is already signed up using a desired service
     const existingUser = await checkExistingUser(username, email);
@@ -68,6 +66,50 @@ export async function registerUser(req, res) {
         return res.status(201).json(new APIResponse(201, { user: createdUser }, 'User created and verification link sent successfully!'));
     } catch (error) {
         console.error("Error @registerUser ::", error?.message);
+        throw new APIError(500, error?.message);
+    }
+}
+
+// Function to login an existing user
+export async function loginUser(req, res) {
+    // Validating request fields
+    const validationResult = await loginValidationSchema.safeParseAsync(req.body);
+
+    // If validation fails, throw an error
+    if (validationResult.error) throw new APIError(400, `Error : ${validationResult.error}`);
+
+    // Extracting user details from the validated data
+    const { email, password } = validationResult.data;
+
+    // Fetching user using email with the desired service
+    const user = await getUserByEmail(email);
+
+    // If the user isn't found, throw a not found error
+    if (!user) throw new APIError(404, `User with email: ${email} not found!`);
+
+    try {
+        // Validate the input password with the desired service
+        const checkPassword = await validatePassword(password);
+
+        // If password validation fails, throw an error
+        if (!checkPassword) throw new APIError(400, 'Invalid password', []);
+
+        // Generate access and refresh tokens
+        const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
+
+        // Object for cookie options
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        // Return user data along with access and refresh tokens as cookies
+        return res.status(200)
+            .cookie('accessToken', accessToken, options)
+            .cookie('refreshToken', refreshToken, options)
+            .json(new APIResponse(200, { user, accessToken, refreshToken }, 'User logged in successfully!'));
+    } catch (e) {
+        console.error("Error @loginUser ::", error?.message);
         throw new APIError(500, error?.message);
     }
 }
