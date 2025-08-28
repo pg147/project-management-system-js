@@ -19,7 +19,7 @@ import {
 } from "../utils/index.js";
 
 // Validation schemas
-import { loginValidationSchema, signupValidationSchema } from "../validations/index.js";
+import { signupValidationSchema } from "../validations/index.js";
 
 // Function to register a new user
 export async function registerUser(req, res) {
@@ -72,24 +72,18 @@ export async function registerUser(req, res) {
 
 // Function to login an existing user
 export async function loginUser(req, res) {
-    // Validating request fields
-    const validationResult = await loginValidationSchema.safeParseAsync(req.body);
-
-    // If validation fails, throw an error
-    if (validationResult.error) throw new APIError(400, `Error : ${validationResult.error}`);
-
-    // Extracting user details from the validated data
-    const { email, password } = validationResult.data;
+    // Extracting user details from the request body
+    const { email, password } = req.body;
 
     // Fetching user using email with the desired service
-    const user = await getUserByEmail(email);
+    const user = await getUserByEmail(email, true);
 
     // If the user isn't found, throw a not found error
     if (!user) throw new APIError(404, `User with email: ${email} not found!`);
 
     try {
         // Validate the input password with the desired service
-        const checkPassword = await validatePassword(password);
+        const checkPassword = await validatePassword(password, user.password);
 
         // If password validation fails, throw an error
         if (!checkPassword) throw new APIError(400, 'Invalid password', []);
@@ -108,8 +102,8 @@ export async function loginUser(req, res) {
             .cookie('accessToken', accessToken, options)
             .cookie('refreshToken', refreshToken, options)
             .json(new APIResponse(200, { user, accessToken, refreshToken }, 'User logged in successfully!'));
-    } catch (e) {
-        console.error("Error @loginUser ::", error?.message);
-        throw new APIError(500, error?.message);
+    } catch (error) {
+        console.error("Error @loginUser ::", error);
+        throw new APIError(500, 'Internal Server Error');
     }
 }

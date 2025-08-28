@@ -25,8 +25,8 @@ export async function checkExistingUser(username, email) {
  * @returns {Promise<Object|null>} A promise that resolves to the user document without sensitive fields, null if not found
  * @description Excludes password, refreshToken, emailVerificationToken, and emailVerificationExpiry fields from the result
  */
-export async function getUserByEmail(email) {
-    return await userModel.findById(email).select("-password -refreshToken -emailVerificationToken -emailVerificationExpiry");
+export async function getUserByEmail(email, withPassword = false) {
+    return await userModel.findOne({ email }).select(`${withPassword ? '' : '-password'} -refreshToken -emailVerificationToken -emailVerificationExpiry`);
 }
 
 /**
