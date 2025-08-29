@@ -4,7 +4,8 @@ import {
     createNewUser,
     generateAccessAndRefreshTokens,
     getUserByEmail,
-    getUserById, sendEmailVerificationLink
+    getUserById,
+    sendLinkViaEmail
 } from "../services/user.services.js";
 
 // Helper functions
@@ -15,7 +16,8 @@ import {
     generateToken,
     validatePassword,
     sendEmail,
-    verificationEmailContent, validateToken
+    verificationEmailContent,
+    validateToken
 } from "../utils/index.js";
 
 // Database collection schema
@@ -48,8 +50,17 @@ export async function registerUser(req, res) {
         // Creating a new user in the database using a desired service
         const user = await createNewUser(username, email, password);
 
-        // Sending a verification link to the user's email
-        await sendEmailVerificationLink(user);
+        // Send the verification link to the user with service
+        await sendLinkViaEmail(
+            user,
+            'emailVerificationToken',
+            'emailVerificationExpiry',
+            'Please verify your email',
+            verificationEmailContent(
+                user.username,
+                `${req.protocol}://${req.get("host")}/api/v1/users/verify/${unhashedToken}`
+            )
+        );
 
         // Fetching the newly created user
         const createdUser = await getUserById(user._id);
@@ -187,7 +198,16 @@ export async function resendVerificationLink(req, res) {
         if (user.isEmailVerified) throw new APIError(409, `${user.email} is already verified!`);
 
         // Send the verification link to the user with service
-        await sendEmailVerificationLink(user);
+        await sendLinkViaEmail(
+            user,
+            'emailVerificationToken',
+            'emailVerificationExpiry',
+            'Please verify your email',
+            verificationEmailContent(
+                user.username,
+                `${req.protocol}://${req.get("host")}/api/v1/users/verify/${unhashedToken}`
+            )
+        );
 
         // Return with the success response
         return res.status(200).json(new APIResponse(200, { status: 'SENT' }, `Verification link sent to ${user.email}`));
@@ -235,5 +255,29 @@ export async function refreshAccessToken(req, res) {
     } catch (error) {
         console.error("Error @refreshAccessToken ::", error?.message ?? error);
         throw new APIError(500, error?.message ?? `${error}`);
+    }
+}
+
+export async function forgotPassword(req, res) {
+    // Validating the request from user, email is required
+    const validationResult = await forgotPasswordValidationSchema.safeParseAsync(req.body);
+    if (validationResult.error) throw new APIError(400, 'Email is required!');
+
+    // Extracting email from validated request
+    const { email } = validationResult.data;
+
+    try {
+        // Fetching user data by matching the email, using desired service
+        const user = await getUserByEmail(email);
+        if (!user) throw new APIError(404, `User with email ${email} not found!`);
+
+        const { unhashedToken, hashedToken, tokenExpiry } = generateTemporaryToken();
+
+        user.forgotPasswordToken = hashedToken;
+        user.forgotPasswordExpiry = tokenExpiry;
+
+
+    } catch (error) {
+
     }
 }
