@@ -121,6 +121,6 @@ export async function sendEmailVerificationLink(user) {
     await sendEmail({
         email: user?.email,
         subject: 'Please verify your email',
-        mailgenContent: verificationEmailContent(user.username, `${req.protocol}://${req.get("host")}/api/v1/users/email/verify/${unhashedToken}`),
+        mailgenContent: verificationEmailContent(user.username, `${req.protocol}://${req.get("host")}/api/v1/users/verify/${unhashedToken}`),
     });
 }
