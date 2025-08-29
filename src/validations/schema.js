@@ -5,3 +5,8 @@ export const signupValidationSchema = z.object({
     email: z.email(),
     password: z.string().min(6)
 });
+
+export const loginValidationSchema = z.object({
+    email: z.email(),
+    password: z.string().min(6)
+});

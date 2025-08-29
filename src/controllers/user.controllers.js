@@ -19,7 +19,7 @@ import {
 } from "../utils/index.js";
 
 // Validation schemas
-import { signupValidationSchema } from "../validations/index.js";
+import { loginValidationSchema, signupValidationSchema } from "../validations/schema.js";
 
 // Function to register a new user
 export async function registerUser(req, res) {
@@ -72,8 +72,14 @@ export async function registerUser(req, res) {
 
 // Function to login an existing user
 export async function loginUser(req, res) {
-    // Extracting user details from the request body
-    const { email, password } = req.body;
+    // Validating request fields
+    const validationResult = await loginValidationSchema.safeParseAsync(req.body);
+
+    // If validation fails, throw an error
+    if (validationResult.error) throw new APIError(400, `Error : ${validationResult.error}`);
+
+    // Extracting user details from the validated data
+    const { email, password } = validationResult.data;
 
     // Fetching user using email with the desired service
     const user = await getUserByEmail(email, true);
