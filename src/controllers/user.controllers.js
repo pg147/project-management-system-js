@@ -18,6 +18,9 @@ import {
     verificationEmailContent
 } from "../utils/index.js";
 
+// Database collection schema
+import userModel from "../models/user.models.js";
+
 // Validation schemas
 import { loginValidationSchema, signupValidationSchema } from "../validations/schema.js";
 
@@ -111,5 +114,30 @@ export async function loginUser(req, res) {
     } catch (error) {
         console.error("Error @loginUser ::", error);
         throw new APIError(500, 'Internal Server Error');
+    }
+}
+
+// Function to logout a user
+export async function logoutUser(req, res) {
+    try {
+        // Fetching the user by id, and updating the refresh token field
+        await userModel.findByIdAndUpdate(req.user._id, {
+            $set: { refreshToken: "" }
+        }, { new: true });
+
+        // Options for cookies
+        const options = {
+            httpOnly: true,
+            secure: true
+        };
+
+        // Clearing the cookies with a success message
+        return res
+            .status(200)
+            .clearCookie('accessToken', options)
+            .clearCookie('refreshToken', options)
+            .json(new APIResponse(200, {}, 'User logged out successfully!'));
+    } catch (error) {
+        console.error("Error @logoutUser ::", error);
     }
 }
