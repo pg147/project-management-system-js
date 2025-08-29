@@ -20,7 +20,7 @@ const router = Router();
 // Public routes
 router.post('/register', registerUser);
 router.post('/login', loginUser);
-router.post('/verify', verifyUserEmail);
+router.post('/email/verify/:token', verifyUserEmail);
 
 // Protected routes
 router.post('/logout', checkAuthentication, logoutUser);
