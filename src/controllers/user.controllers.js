@@ -4,7 +4,7 @@ import {
     createNewUser,
     generateAccessAndRefreshTokens,
     getUserByEmail,
-    getUserById
+    getUserById, sendEmailVerificationLink
 } from "../services/user.services.js";
 
 // Helper functions
@@ -15,11 +15,14 @@ import {
     generateToken,
     validatePassword,
     sendEmail,
-    verificationEmailContent
+    verificationEmailContent, validateToken
 } from "../utils/index.js";
 
 // Database collection schema
 import userModel from "../models/user.models.js";
+
+// Crypto modules
+import { createHash } from "node:crypto";
 
 // Validation schemas
 import { loginValidationSchema, signupValidationSchema } from "../validations/schema.js";
@@ -45,22 +48,8 @@ export async function registerUser(req, res) {
         // Creating a new user in the database using a desired service
         const user = await createNewUser(username, email, password);
 
-        // Generating a temporary token for the user
-        const { unhashedToken, hashedToken, tokenExpiry } = generateTemporaryToken();
-
-        // Assigning temporary token values to desired fields
-        user.emailVerificationToken = hashedToken;
-        user.emailVerificationExpiry = tokenExpiry;
-
-        // Saving the modified user fields
-        await user.save({ validateBeforeSave: false });
-
         // Sending a verification link to the user's email
-        await sendEmail({
-            email: user?.email,
-            subject: 'Please verify your email',
-            mailgenContent: verificationEmailContent(user.username, `${req.protocol}://${req.get("host")}/api/v1/users/verify/${unhashedToken}`),
-        });
+        await sendEmailVerificationLink(user);
 
         // Fetching the newly created user
         const createdUser = await getUserById(user._id);
@@ -139,5 +128,112 @@ export async function logoutUser(req, res) {
             .json(new APIResponse(200, {}, 'User logged out successfully!'));
     } catch (error) {
         console.error("Error @logoutUser ::", error);
+    }
+}
+
+// Function to fetch the current user
+export function getCurrentUser(req, res) {
+    return res.status(200).json(new APIResponse(200, { user: req.user }, `User [${req.user.username}] fetched successfully!`));
+}
+
+// Function to verify user's email
+export async function verifyUserEmail(req, res) {
+    // Extracting verification token from route parameters
+    const { token } = req.params;
+
+    // If token wasn't found in params, throw an invalid request error
+    if (!token) throw new APIError(401, 'Invalid Request!');
+
+    // Hash the verification token, to match with stored token in the database
+    const hashedToken = createHash('sha256').update(token).digest('hex');
+
+    try {
+        // Fetch user by matching the hashed verification token, meeting the expiry condition
+        const user = await userModel.findOne({
+            emailVerificationToken: hashedToken,
+            emailVerificationExpiry: { $gt: Date.now() }
+        });
+
+        // If user not found or token expired, throw an error
+        if (!user) throw new APIError(401, 'Either the token is valid or expired.');
+
+        // Reset the email verification fields in the database
+        user.emailVerificationToken = undefined;
+        user.emailVerificationExpiry = undefined;
+
+        // Set the verified status field to true
+        user.isEmailVerified = true;
+
+        // Save the modified fields
+        await user.save({ validateBeforeSave: false });
+
+        // Return the success response
+        return res.status(200).json(new APIResponse(200, { verified: true }, `User email [${user.email}] verified successfully!`));
+    } catch (error) {
+        console.error("Error @verifyUserEmail ::", error);
+    }
+}
+
+// Function to resend verification link to the user's email
+export async function resendVerificationLink(req, res) {
+    try {
+        // Fetching the user by id using the desired service
+        const user = await getUserById(req.user._id);
+
+        // If user not found, throw an error
+        if (!user) throw new APIError(404, 'User not found!');
+
+        // If user's email is already verified, throw a conflict error
+        if (user.isEmailVerified) throw new APIError(409, `${user.email} is already verified!`);
+
+        // Send the verification link to the user with service
+        await sendEmailVerificationLink(user);
+
+        // Return with the success response
+        return res.status(200).json(new APIResponse(200, { status: 'SENT' }, `Verification link sent to ${user.email}`));
+    } catch (error) {
+        console.error("Error @resendVerificationLink ::", error?.message ?? error);
+        throw new APIError(500, error?.message ?? `${error}`);
+    }
+}
+
+// Function to refresh the expired access token
+export async function refreshAccessToken(req, res) {
+    // Extract refresh token from cookies
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) throw new APIError(401, 'Unauthorized access!');
+
+    try {
+        // Decode refresh token and extract user id
+        const decodedRefreshToken = validateToken(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+
+        // Ensure the user exists
+        const user = await getUserById(decodedRefreshToken._id);
+        if (!user) throw new APIError(404, 'User not found!');
+
+        // User must still have a valid stored refresh token (not logged out)
+        if (!user.refreshToken) throw new APIError(401, 'You must be logged in!');
+
+        // Prevent token replay: verify stored refresh token matches cookie
+        if (user.refreshToken !== refreshToken) throw new APIError(401, 'Invalid Refresh Token!');
+
+        // Generate new access/refresh token pair
+        const { accessToken, refreshToken: newRefreshToken } = generateAccessAndRefreshTokens(user._id);
+
+        // Persist updated refresh token
+        user.refreshToken = newRefreshToken;
+        await user.save({ validateBeforeSave: false });
+
+        // Send new tokens in secure, httpOnly cookies
+        const options = { httpOnly: true, secure: true };
+
+        return res
+            .status(200)
+            .cookie('accessToken', accessToken, options)
+            .cookie('refreshToken', newRefreshToken, options)
+            .json(new APIResponse(200, { accessToken, refreshToken: newRefreshToken }, 'Access token refreshed successfully!'));
+    } catch (error) {
+        console.error("Error @refreshAccessToken ::", error?.message ?? error);
+        throw new APIError(500, error?.message ?? `${error}`);
     }
 }

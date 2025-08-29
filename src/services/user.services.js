@@ -91,3 +91,36 @@ export async function generateAccessAndRefreshTokens(userId) {
         throw new APIError(500, error?.message);
     }
 }
+
+/**
+ * Sends an email verification link to a user
+ * @async
+ * @function sendEmailVerificationLink
+ * @param {Object} user - The user document from the database
+ * @param {string} user.email - The user's email address
+ * @param {string} user.username - The user's username
+ * @param {Object} req - The Express request object containing protocol and host information
+ * @param {string} req.protocol - The request protocol (http/https)
+ * @param {Function} req.get - Function to get request headers
+ * @returns {Promise<void>} A promise that resolves when the verification email is sent
+ * @throws {Error} Throws an error if token generation, user saving, or email sending fails
+ * @description Generates a temporary verification token, saves it to the user document, and sends a verification email with a link containing the unhashed token. The verification link uses the request protocol and host to construct the full URL.
+ */
+export async function sendEmailVerificationLink(user) {
+    // Generating a temporary token for the user
+    const { unhashedToken, hashedToken, tokenExpiry } = generateTemporaryToken();
+
+    // Assigning temporary token values to desired fields
+    user.emailVerificationToken = hashedToken;
+    user.emailVerificationExpiry = tokenExpiry;
+
+    // Saving the modified user fields
+    await user.save({ validateBeforeSave: false });
+
+    // Sending a verification link to the user's email
+    await sendEmail({
+        email: user?.email,
+        subject: 'Please verify your email',
+        mailgenContent: verificationEmailContent(user.username, `${req.protocol}://${req.get("host")}/api/v1/users/verify?token=${unhashedToken}`),
+    });
+}
