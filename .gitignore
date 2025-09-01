@@ -9,7 +9,6 @@ yarn.lock
 pnpm-lock.yaml
 
 # Environment variables
-.env
 .env.*.local
 
 # Logs
@@ -47,3 +46,4 @@ build/
 .DS_Store
 Thumbs.db
 
+config.bat
