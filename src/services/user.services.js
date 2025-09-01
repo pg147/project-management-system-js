@@ -92,6 +92,36 @@ export async function generateAccessAndRefreshTokens(userId) {
     }
 }
 
+/**
+ * Sends a secure link via email to a user for various verification purposes (email verification, password reset, etc.)
+ *
+ * This function handles the complete flow of:
+ * 1. Storing hashed tokens in the user record with expiry timestamps
+ * 2. Dispatching emails with verification links containing unhashed tokens
+ *
+ * The security model uses token pairs where:
+ * - Hashed tokens are stored in the database (secure against data breaches)
+ * - Unhashed tokens are sent via email URLs (allows verification without database exposure)
+ *
+ * @async
+ * @function sendLinkViaEmail
+ *
+ * @param {Object} user - The user document/object to update with token fields
+ * @param {string} tokenFieldName - The database field name to store the hashed token (e.g., 'emailVerificationToken', 'forgotPasswordToken')
+ * @param {string} tokenExpiryFieldName - The database field name to store the token expiry timestamp (e.g., 'emailVerificationExpiry', 'forgotPasswordExpiry')
+ * @param {string} hashedToken - The SHA-256 hashed version of the token for secure database storage
+ * @param {Date} tokenExpiry - The expiration timestamp for the token to prevent indefinite validity
+ * @param {string} emailSubject - The subject line for the verification email
+ * @param {string} emailContent - The HTML email content containing the verification link with unhashed token
+ *
+ * @returns {Promise<void>} Resolves when both database update and email dispatch complete successfully
+ *
+ * @throws {Error} Database errors during user.save() operation
+ * @throws {Error} Email service errors during sendEmail() operation
+
+ * @since 1.0.0
+ * @memberof UserServices
+ */
 export async function sendLinkViaEmail(user, tokenFieldName, tokenExpiryFieldName, hashedToken, tokenExpiry, emailSubject, emailContent) {
     // Assigning temporary token values to desired fields
     user[`${tokenFieldName}`] = hashedToken;
