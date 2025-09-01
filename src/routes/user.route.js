@@ -8,7 +8,8 @@ import {
     logoutUser, refreshAccessToken,
     registerUser,
     resendVerificationLink,
-    verifyUserEmail
+    verifyUserEmail,
+    forgotPassword, resetPassword, changePassword
 } from "../controllers/user.controllers.js";
 
 // Middlewares
@@ -21,11 +22,14 @@ const router = Router();
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/verify/:token', verifyUserEmail);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:token', resetPassword);
 
 // Protected routes
 router.post('/logout', checkAuthentication, logoutUser);
 router.get('/current', checkAuthentication, getCurrentUser);
 router.post('/verify/resend', checkAuthentication, resendVerificationLink);
 router.post('/refresh', checkAuthentication, refreshAccessToken);
+router.post('/change-password', checkAuthentication, changePassword);
 
 export default router;
